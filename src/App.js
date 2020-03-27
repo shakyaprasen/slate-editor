@@ -1,11 +1,14 @@
 // Import React dependencies.
 import React, { useCallback, useMemo, useState } from "react";
 // Import the Slate editor factory.
-import { createEditor, Transforms, Editor, Text } from 'slate'
+import { createEditor, Transforms, Editor, Text } from 'slate';
 
 // Import the Slate components and React plugin.
-import { Slate, Editable, withReact } from 'slate-react'
+import { Slate, Editable, withReact } from 'slate-react';
+
 import './App.css';
+
+import { convert } from './romanizedNepali';
 
 // Define our own custom set of helpers.
 const CustomEditor = {
@@ -46,27 +49,25 @@ const CustomEditor = {
 
 const App = () => {
   const editor = useMemo(() => withReact(createEditor()), [])
-
-  const { isVoid } = editor;
-
-  editor.isVoid = element => {
-    return element.type === 'readOnly' ? true : isVoid(element);
-  };
-
+  const [currentWord, setCurrentWord] = useState('');
   const [value, setValue] = useState([
     {
+      id: 'text-1',
       type: 'readOnly',
       children: [{ text: 'A line of text to be translated.' }],
     },
     {
+      id: 'translation-1',
       type: 'paragraph',
       children: [{ text: '' }],
     },
     {
+      id: 'text-2',
       type: 'readOnly',
-      children: [{ text: 'A line of text in third paragraph.' }],
+      children: [{ text: 'Another line to be translated.' }],
     },
     {
+      id: 'translation-2',
       type: 'paragraph',
       children: [{ text: '' }],
     },
@@ -85,14 +86,26 @@ const App = () => {
 
   const renderLeaf = useCallback(props => {
     return <Leaf {...props} />
-  }, [])
+  }, []);
+
+  
+  const { isVoid } = editor;
+
+  editor.isVoid = element => {
+    return element.type === 'readOnly' ? true : isVoid(element);
+  };
+
+
+  const convertToUnicode = text => convert(text);
+
+  // const addToTranslationQueue = (text => setCurrentTranslation({})
+
 
   return (
     // Add a toolbar with buttons that call the same methods.
     <Slate
       onChange={value => {
         setValue(value)
-
         // Save the value to Local Storage.
         const content = JSON.stringify(value)
         localStorage.setItem('content', content)
@@ -100,46 +113,22 @@ const App = () => {
       editor={editor} 
       value={value} 
     >
-      <div>
-        <button
-          onMouseDown={event => {
-            event.preventDefault()
-            CustomEditor.toggleBoldMark(editor)
-          }}
-        >
-          Bold
-        </button>
-        <button
-          onMouseDown={event => {
-            event.preventDefault()
-            CustomEditor.toggleCodeBlock(editor)
-          }}
-        >
-          Code Block
-        </button>
-      </div>
       <Editable
         editor={editor}
         renderElement={renderElement}
         renderLeaf={renderLeaf}
         onKeyDown={event => {
-          if (!event.ctrlKey) {
-            return
+          if (event.keyCode === 32 || event.key === "Shift" || event.key === "Alt" || event.key === "Control" || event.key === "Backspace" || event.key === "Enter" || event.key === "Delete" || event.key === "Tab") {
+            setCurrentWord('');
+            return;
           }
-
-          switch (event.key) {
-            case '`': {
-              event.preventDefault()
-              CustomEditor.toggleCodeBlock(editor)
-              break
-            }
-
-            case 'b': {
-              event.preventDefault()
-              CustomEditor.toggleBoldMark(editor)
-              break
-            }
+          event.preventDefault();
+          const updatedWord = `${currentWord}${event.key}`;
+          setCurrentWord(updatedWord);
+          if (currentWord) {
+            editor.deleteBackward('word');
           }
+          Transforms.insertText(editor, convertToUnicode(updatedWord));
         }}
       />
     </Slate>
